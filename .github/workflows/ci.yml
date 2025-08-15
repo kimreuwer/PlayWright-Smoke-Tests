@@ -1,0 +1,49 @@
+name: CI - Playwright Smoke
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  smoke-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install --with-deps
+
+      - name: Run smoke tests
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          # Optional if you implement auth flow
+          # TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          # TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+        run: |
+          mkdir -p artifacts
+          pytest -m smoke --screenshot=only-on-failure --video=retain-on-failure --junitxml=artifacts/junit.xml
+
+      - name: Upload artifacts (JUnit, screenshots, videos)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-artifacts
+          path: |
+            artifacts
+            test-results
+            playwright-report
+            **/*.png
+            **/*.webm
+          if-no-files-found: ignore
